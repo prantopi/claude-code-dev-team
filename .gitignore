@@ -1,0 +1,13 @@
+# Old v1-v4 scripts: kept locally, not published
+legacy/
+
+# Built Claudemon app (run claudemon/build.sh to create it)
+claudemon/Claudemon.app/
+.DS_Store
+
+# Output of analytics/parse_logs.py: your own usage data
+dev-team-history.jsonl
+
+# Planning notes and personal analysis tools: kept locally, not published
+FUTURE-UPGRADES.md
+analytics/
