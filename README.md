@@ -26,18 +26,20 @@ Three things save time and money. Every number below is either Anthropic's publi
 
 | Model | Input | Output | Price vs Opus 5.5 | Used by (default profile) |
 |-------|-------|--------|-------------------|---------------------------|
-| Haiku 4.5 | $1 | $5 | **¼** | SAGE (docs) |
-| Sonnet 5 | $2 | $10 | **½** | ECHO, LUNA, VOLT, IRIS, SWIFT, DEBUG, QUEST |
-| Opus 5.5 | $4 | $20 | 1× | ATLAS (architecture) |
+| Haiku 4.5 | $1 | $5 | **¼** | None by default (SAGE and LUNA in the economy profile) |
+| Sonnet 5 | $2 | $10 | **½** | ECHO, LUNA, VOLT, SWIFT, QUEST, SAGE |
+| Opus 5.5 | $4 | $20 | 1× | ATLAS (architecture), IRIS (review), DEBUG (root causes) |
 | Fable 5.1 | $10 | $50 | 2.5× | Only when a task asks for it |
 
-So with the default profile, 7 of the 9 agents cost half as much per token as running everything on Opus 5.5, and the docs agent costs a quarter. These are per-token prices: total cost also depends on how many tokens each task uses, which depends on your project.
+So with the default profile, the three agents whose judgment decides quality (design, review and debugging) use Opus 5.5, and the six that build, plan, test and document from their instructions cost half as much per token. LUNA can still mark a hard task (platform internals, concurrency, security) to run on Opus. These are per-token prices: total cost also depends on how many tokens each task uses, which depends on your project.
 
 The agent files use Claude Code's model aliases (`haiku`, `sonnet`, `opus`); the table shows the versions current at the time of writing. If you use a Claude subscription rather than the API, you don't pay per token, and model choice affects how fast you use your plan's limits instead.
 
 **2. Real parallel work.** ATLAS designs the code so features can be built separately: their own files, or their own marked regions of a shared file. LUNA then plans the features to run side by side. Claude keeps up to your chosen number of agents (1–20) busy, starting each task as soon as the tasks it depends on are done. Each coding agent works in its own git worktree, and git merges their work. The build is only split when each part is substantial on its own: every extra agent has to read the brief and design first, so for a small job such as a single page, one developer is faster and cheaper.
 
 **3. Smaller, focused contexts.** Each agent works in its own context window and reports back a short summary. Your main session doesn't fill up with every file each agent read, so it stays responsive for longer.
+
+**4. No wasted steps.** Every reply re-reads the agent's whole conversation, so cost grows with the number of steps times the size of the context. The agents batch independent reads and checks into one step, read the doc sections and line ranges their task names instead of whole files, keep command output short, and don't re-read or re-check what they already know. LUNA writes those section references into every batch. None of this skips work: reviews and tests still run.
 
 **What we haven't measured:** we don't publish speed-up or savings percentages for whole projects, because they depend on the project, and made-up averages would be misleading. To measure your own, run [Claudemon](#watch-it-live-claudemon) alongside the team: it shows tokens by model, tokens per minute and every agent's token count as it runs.
 
@@ -80,7 +82,7 @@ cd path/to/your-project
 
 It asks three questions. Press Enter to accept each default:
 
-1. **Model profile:** which model each agent uses (`balanced`, `economy`, `quality` or `inherit`, see [Models](#models))
+1. **Model profile:** which model each agent uses (`quality`, `balanced`, `economy` or `inherit`, see [Models](#models))
 2. **Parallel agents:** how many agents may run at once (default 3)
 3. **Token budget:** optional; Claude pauses and asks you when the budget's alert level is reached
 4. **Use git:** yes by default; see [Git workflow](#git-workflow). If the folder isn't a git repository yet, the script creates one.
@@ -254,9 +256,9 @@ Each agent has a default model, set by the profile you choose during setup:
 
 | Profile | ATLAS | IRIS | DEBUG | SAGE | LUNA | Everyone else |
 |---------|-------|------|-------|------|------|---------------|
-| **balanced** (default) | opus | sonnet | sonnet | haiku | sonnet | sonnet |
+| **balanced** | opus | sonnet | sonnet | haiku | sonnet | sonnet |
 | **economy** | sonnet | sonnet | sonnet | haiku | haiku | sonnet |
-| **quality** | opus | opus | opus | sonnet | sonnet | sonnet |
+| **quality** (default) | opus | opus | opus | sonnet | sonnet | sonnet |
 | **inherit** | your session's model, for every agent | | | | | |
 
 You can override the default per task by filling in the **Model** column in the task queue (`haiku`, `sonnet`, `opus` or `fable`). LUNA suggests a model when it plans. Claude passes that model when it launches the agent, so the override takes effect.
@@ -291,7 +293,7 @@ your-project/
 ./setup.sh [project-dir] [options]
 
   --auto             use defaults, ask nothing
-  --profile NAME     balanced (default), economy, quality, inherit
+  --profile NAME     quality (default), balanced, economy, inherit
   --parallel N       max agents running at once, 1-20 (default 3)
   --budget N         soft token budget (default: none)
   --alert PCT        alert at this % of the budget (default 80)

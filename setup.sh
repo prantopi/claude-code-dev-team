@@ -4,7 +4,7 @@
 # Usage: ./setup.sh [project-dir] [options]
 #
 #   --auto             use defaults, ask nothing
-#   --profile NAME     model profile: balanced (default), economy, quality, inherit
+#   --profile NAME     model profile: quality (default), balanced, economy, inherit
 #   --parallel N       max agents Claude runs at once, 1-20 (default 3)
 #   --budget N         optional soft token budget for the project (default: none)
 #   --alert PCT        warn when the budget is this % used, 1-100 (default 80)
@@ -27,7 +27,7 @@ GREEN=$'\033[0;32m'; BLUE=$'\033[0;34m'; YELLOW=$'\033[1;33m'; RED=$'\033[0;31m'
 ROOT="."
 AUTO=0
 UPDATE_AGENTS=0
-PROFILE="balanced"
+PROFILE="quality"
 MAX_PARALLEL=3
 BUDGET=""
 ALERT=80
@@ -39,7 +39,7 @@ usage() { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 0; }
 is_int() { case "$1" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }
 
 check_profile() {
-  case "$1" in balanced|economy|quality|inherit) ;; *) die "unknown profile '$1' (use balanced, economy, quality or inherit)" ;; esac
+  case "$1" in balanced|economy|quality|inherit) ;; *) die "unknown profile '$1' (use quality, balanced, economy or inherit)" ;; esac
 }
 check_parallel() {
   is_int "$1" && [ "$1" -ge 1 ] && [ "$1" -le 20 ] || die "--parallel must be a number from 1 to 20 (got '$1')"
@@ -85,10 +85,10 @@ if [ "$AUTO" -eq 0 ] && [ -t 0 ]; then
   echo "1) Model profile — which model each agent uses by default"
   echo "   ${DIM}balanced: opus for ATLAS, haiku for SAGE, sonnet for the rest${NC}"
   echo "   ${DIM}economy:  haiku for SAGE and LUNA, sonnet for the rest${NC}"
-  echo "   ${DIM}quality:  opus for ATLAS, IRIS and DEBUG, sonnet for the rest${NC}"
+  echo "   ${DIM}quality:  opus for ATLAS, IRIS and DEBUG, sonnet for the rest (default)${NC}"
   echo "   ${DIM}inherit:  every agent uses whatever model your session uses${NC}"
   while :; do
-    ask "   profile (balanced/economy/quality/inherit)" "$PROFILE"
+    ask "   profile (quality/balanced/economy/inherit)" "$PROFILE"
     case "$REPLY" in b*) PROFILE=balanced ;; e*) PROFILE=economy ;; q*) PROFILE=quality ;; i*) PROFILE=inherit ;; *) echo "   ${RED}pick one of the four${NC}"; continue ;; esac
     break
   done
@@ -204,6 +204,19 @@ agent() {
 - Other agents may be running at the same time. Never edit a file another task in your batch owns.
 - Don't guess at missing requirements: say what's missing in your report.
 
+## Work efficiently
+Every reply re-reads your whole conversation so far, so each extra step and each large read costs tokens
+for the rest of the task. Save them without skipping anything the task needs:
+- Do independent things in one step: several file reads or searches as parallel tool calls, and related
+  shell checks in one command (`a && b; c`) rather than one command per reply.
+- Read what you need, not whole files: search first (Grep), then read the relevant lines. When your task
+  names doc sections or line ranges, read those. Read a whole file only when you need all of it.
+- Don't read a file twice unless it changed. Keep what you learned instead of re-checking it.
+- Keep command output short: quiet flags, `| tail -n 20`, grep for failures. Show full output only when
+  you need it to fix something.
+- If the task gives a base commit, check it with `git log -1 --format=%h` before you start.
+- Keep your report short and factual. Don't paste code or logs the main session can read itself.
+
 ## Report back (your final message)
 1. **Summary**: what you did, in 2-4 sentences.
 2. **Files changed**: paths, one per line.
@@ -274,6 +287,7 @@ Read \`claude/echo/requirements-summary.md\`, \`claude/echo/features-todo.md\` a
 
 Rules for the queue:
 - Each task is one row: ID, task, agent, model, depends on, files it touches, status (\`pending\`).
+- Under each batch, add a **Read first** line that names the exact doc sections (for example \`atlas/components.md §store.py\`) and reference-code line ranges each task needs, so agents don't read whole documents.
 - Group tasks into batches. A batch holds at most **$MAX_PARALLEL** tasks.
 - Tasks in the same batch must not depend on each other. They must not touch the same files, except for different marked regions of a shared file when the project uses git.
 - Put architecture (ATLAS) before implementation (VOLT). Every VOLT, DEBUG or SWIFT task gets its own IRIS review task that depends only on it, so the review starts as soon as that task is done, even while other tasks are still being built.
@@ -287,7 +301,7 @@ Rules for the queue:
 Choosing the Model column (leave it blank to use the agent's default):
 - \`haiku\`: routine writing and mechanical changes (status updates, simple docs, renames)
 - \`sonnet\`: most feature work, tests and reviews
-- \`opus\` or \`fable\`: hard design or debugging, and anything security-sensitive (auth, payments, secrets, permissions)
+- \`opus\` or \`fable\`: hard design or debugging, platform or OS internals, concurrency, and anything security-sensitive (auth, payments, secrets, permissions)
 
 ## Status
 When asked for status, update \`claude/luna/status.md\`, \`claude/luna/blockers.md\` and \`claude/luna/timeline.md\` from the queue and the agents' folders.
@@ -324,6 +338,7 @@ agent iris orange "tools: Read, Write, Edit, Glob, Grep, Bash" \
 You are IRIS, the reviewer. You review; you never modify project source code.
 
 - Review only the changes your task names and the requirements they implement. With git, review the commit range you're given: `git diff <range>` and `git log <range>`. Don't read the rest of `claude/`; your task names the documents that matter.
+- Start from the diff. Open surrounding code or reference code only where a change depends on it, and read those lines rather than whole files. Run the tests once; rerun only after something changed.
 - A review usually covers one task's changes. Stay within them; other parts get their own reviews.
 - For an integration check after a split build, check the parts fit together: every ID, class and function one file uses must exist in the others, as the build contract says.
 - Check correctness first, then security, error handling, tests and `claude/volt/code-standards.md`.
@@ -471,8 +486,9 @@ Use it whenever the user asks for it. If you can't tell which path fits, ask the
      once, in a single message with one agent call per task. When an agent finishes and more tasks
      become ready, start them right away instead of waiting for the rest of the batch.
      If the Model column is filled in, pass that model when launching the agent.
-   - Give each agent its task row, the files it may touch, and only the \`claude/\` files that matter for
-     that task, so it doesn't spend tokens reading the rest.
+   - Give each agent its task row, the files it may touch, the base commit, and only the \`claude/\` sections
+     that matter for that task (name sections and line ranges, not whole folders), so it doesn't spend
+     tokens reading the rest. Tell it what's already verified so it doesn't re-check it.
    - Mark tasks \`running\`, then \`done\` or \`blocked\` from each agent's report.
    - Summarize the batch for the user and ask before starting the next one.
 5. **Review.** Each VOLT, DEBUG or SWIFT task gets its own **iris** review, started as soon as that task
