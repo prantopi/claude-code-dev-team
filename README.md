@@ -127,9 +127,20 @@ Then remove the `@claude/TEAM.md` line from `CLAUDE.md`. If the script created `
 
 You talk to the team in plain English, in a normal Claude Code session. Claude knows the workflow because `CLAUDE.md` loads `claude/TEAM.md` at the start of every session.
 
-### Small jobs: the fast path
+### Sizing: only as much team as the job needs
 
-For one feature, fix or page, you don't need the whole team. Just ask, for example *"add a dark mode toggle to the settings page"*. Claude skips discovery, design and planning: VOLT builds it and IRIS reviews it, and the tasks are still logged in the queue. For bigger or less clear work, Claude uses the full workflow below. You can always ask for the full workflow by name.
+More agents means more cost and time, not more intelligence: the agents are the same model in different roles, and each one re-reads the brief. So before starting, Claude sizes the job, tells you which size it picked, and uses the smallest route that fits:
+
+| Size | Example | Route |
+|------|---------|-------|
+| **Tiny** | *"fix the typo in the footer"* | Claude does it directly. No agents, no review. |
+| **Small** | *"add a dark mode toggle to the settings page"* | One VOLT agent on Opus, with its own tests. IRIS reviews only security-sensitive changes. |
+| **Medium** | *"add CSV export to the reports"* | ATLAS writes a short design, VOLT builds, QUEST tests, IRIS reviews. |
+| **Large** | *"build an invoicing app"* | The full workflow below: discovery, design, plan, parallel batches, reviews. |
+
+Security-sensitive work (auth, secrets, payments, permissions, untrusted input, shell commands) always gets an IRIS review, whatever its size. If a job turns out bigger than it looked, Claude moves it up a size and tells you. You can always override: *"use the full team"* or *"just do it yourself"*.
+
+**Why:** in a benchmark on a small, single-file task (a script of a few hundred lines, graded by 28 hidden tests plus 5 edge cases), one Opus agent scored 28/28 on its first try for $0.58 in 4.8 minutes. The full build-review-fix route reached the same 28/28 for $1.24 in 11.6 minutes. Its review did catch a real bug in the Sonnet builder's first version, but the Opus agent never made that bug. On one file there's nothing to build in parallel, so the team's strength only pays off on larger work.
 
 ### Step 1: Discovery, with ECHO
 
@@ -222,7 +233,7 @@ The team works like a professional software team: every change is made on a bran
 6. **Interruptions don't lose work.** If a usage limit or a closed session stops agents mid-task, Claude commits what's in their worktrees, merges it as `wip`, and relaunches each task to finish from there instead of starting over.
 7. **You decide what ships.** When the queue is done, Claude shows you the branch's commits and offers to push it and open a pull request with `gh`. It only does so if you say yes. For anything that runs (an app, a site, a CLI), it also offers an optional real-run check: QUEST launches it for real and tries the main features, because passing tests don't always mean it works.
 
-Here's the history from a real run, a small fast-path job:
+Here's the history from a real run of a small build-and-review job:
 
 ```
 * chore(team): batch 2 approved by iris

@@ -473,16 +473,29 @@ This project uses a team of subagents defined in \`.claude/agents/\`. The shared
 | debug | Root-cause debugging | $(model_for debug) |
 | quest | Tests | $(model_for quest) |
 
-## Choose the path first
+## Size the job first (adaptive routing)
 
-**Fast path, for small jobs.** If the request is one feature, fix or page touching a few files, and the user
-has already said clearly what they want, skip discovery, design and planning:
-1. Add the tasks to \`claude/luna/task-queue.md\` as a new batch, so progress is still tracked.
-2. Delegate the build to **volt**: one task, or one per file in parallel if you can state a clear contract between them yourself.
-3. Delegate the review to **iris**. Use **quest** only if there are tests to write or run.
+More agents means more cost and time, not more intelligence: every agent re-reads the brief, and
+every review round adds a pass. So use the smallest route that fits the job. Before starting, tell
+the user in one line which size you picked and why. The user can always override ("use the full
+team", "just do it yourself").
 
-**Full workflow, for everything else:** new projects, several features, or unclear requirements.
-Use it whenever the user asks for it. If you can't tell which path fits, ask the user.
+| Size | What it looks like | Route |
+|------|--------------------|-------|
+| **Tiny** | A typo, a rename, a config value, a one-line fix; no design choice | Do it yourself in the main session. No agents, no review. Add a one-line entry to \`claude/CHANGELOG.md\`. |
+| **Small** | One file or a few closely related files, and the user said clearly what they want | One **volt** task with model \`opus\`. It writes and runs its own tests. Review by **iris** only if the change is security-sensitive (see below) or the user asks. |
+| **Medium** | A feature across several files, or one that needs a design decision | A short design note from **atlas**, then **volt**, **quest** if there are tests to write, then an **iris** review. Skip discovery and planning. |
+| **Large** | A new project, several features, or unclear requirements | The full workflow below: discovery, design, plan, parallel batches, reviews. |
+
+Rules:
+- **Security-sensitive work always gets an iris review**, whatever its size: authentication, secrets,
+  payments, permissions, parsing untrusted input, running shell commands or subprocesses, and writing
+  files outside the project.
+- **Move up a size** as soon as the work turns out bigger than it looked (more files, a design choice,
+  unclear requirements). Say so to the user.
+- **Tiny, Small and Medium work is still tracked:** add it to \`claude/luna/task-queue.md\` as a new
+  batch (Tiny work only needs the changelog line), so progress stays visible.
+- If you can't tell which size fits, ask the user.
 
 ## Full workflow
 
