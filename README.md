@@ -61,7 +61,7 @@ Then open `claude` in the same folder and say **"have atlas design the architect
 - [Claude Code](https://code.claude.com), installed and signed in
 - bash: built into macOS and Linux. On Windows, use [WSL](https://learn.microsoft.com/windows/wsl/install) or Git Bash.
 - git, with your name and email set (`git config --global user.name "Your Name"` and `user.email`). You can turn git off with `--no-git`.
-- Optional, for [Claudemon](#watch-it-live-claudemon): macOS 11 or later and Apple's command line tools (`xcode-select --install`)
+- Optional, for [Claudemon](#watch-it-live-claudemon): on macOS, macOS 11 or later and Apple's command line tools (`xcode-select --install`); on Windows or Linux, Python 3.9 or later with Tk (on Linux, the `python3-tk` package)
 
 ### 1. Get the scripts
 
@@ -238,19 +238,31 @@ Here's the history from a real run, a small fast-path job:
 * chore: set up Claude dev team        ← main
 ```
 
-**Guard rails** in `.claude/settings.json`: everyday git commands (status, diff, log, add, commit, branch, switch, merge, worktree) run without prompts, and destructive ones (`push --force`, `reset --hard`, `clean`, `rebase`, `branch -D`) are blocked. A plain `git push` always asks you first.
+**Guard rails** in `.claude/settings.json`: everyday git commands (status, diff, log, add, commit, branch, switch, merge, worktree) run without prompts, and destructive ones (`push --force`, `reset ## Watch it live: Claudemon
 
-## Watch it live: Claudemon
+![Claudemon showing a live session with its agents nested under it, token usage and a tokens-per-minute chart](claudemon/docs/demo.gif)
 
-![Claudemon showing token usage, running agents and a tokens-per-minute chart](docs/claudemon.png)
+`claudemon/` contains a small floating window that shows what Claude Code is doing, live. Each session shows its current action (for example `Editing app.py` or `Running tests`) with its running agents nested under it, plus token usage, speed, models, a live chart and a timeline of every agent the team ran. It reads Claude Code's local logs and sends nothing anywhere.
 
-`claudemon/` contains a small floating dashboard for macOS. It shows each agent as it runs, with its task, tokens and run time, plus token usage, speed, models and a live chart. It reads Claude Code's local logs and sends nothing anywhere.
+**macOS** (native app):
 
 ```bash
 cd claudemon && ./build.sh && open Claudemon.app
 ```
 
-It also works on its own for any Claude Code user: see [claudemon](https://github.com/prantopi/claudemon).
+**Windows and Linux** (Python port):
+
+```bash
+python3 claudemon/windows-linux/claudemon.py
+```
+
+On Windows you can also double-click `claudemon/windows-linux/claudemon.bat`. Optionally, `pip install -r claudemon/windows-linux/requirements.txt` installs psutil for session checks on Windows.
+
+**Official usage limits (optional):** a small status-line script in `claudemon/statusline/` lets Claudemon show your official 5-hour and weekly usage on Pro and Max plans. See [its README](claudemon/statusline/README.md) for setup.
+
+The full guide is in [claudemon/README.md](claudemon/README.md). Claudemon also works on its own for any Claude Code user: see [prantopi/claudemon](https://github.com/prantopi/claudemon).
+
+ks on its own for any Claude Code user: see [claudemon](https://github.com/prantopi/claudemon).
 
 ## Models
 

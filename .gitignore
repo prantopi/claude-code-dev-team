@@ -12,3 +12,4 @@ dev-team-history.jsonl
 FUTURE-UPGRADES.md
 analytics/
 future update.md
+__pycache__/
