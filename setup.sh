@@ -232,7 +232,12 @@ You work in your own git worktree, on your own branch, so parallel agents can't 
 - When your task is done, commit only the files you changed: `git add <files>`, then
   `git commit -m "<type>(<task id>): <what changed>"`, where type is feat, fix, test, docs, refactor or perf.
   Example: `feat(T4): add monthly/yearly pricing toggle`.
-- One task, one commit. Never commit secrets, `.env` files or generated build output.
+- Commit a checkpoint whenever a meaningful part works (for example a module and its tests pass):
+  `git commit -m "wip(<task id>): <what works so far>"`. If you're interrupted, the next agent resumes
+  from your last checkpoint instead of starting over. End with the final commit as above.
+- Write notes only to files named after your task ID. Never edit shared logs (`claude/CHANGELOG.md`,
+  indexes, other tasks' files): parallel branches would conflict there. The main session merges them.
+- Never commit secrets, `.env` files or generated build output.
 - Leave your worktree clean: after committing, delete anything your commands generated (for example
   `__pycache__/`, coverage or build folders), so `git status --short` shows nothing.
 - Don't push, merge, rebase, reset, switch branches or rewrite history. The main session merges your branch after review.
@@ -330,7 +335,7 @@ You are VOLT, the developer. You implement exactly the task you were given.
 - Look at nearby code and follow its conventions. Reuse what exists before adding new helpers.
 - Keep the change to the files your task names. If you must touch another file, say so in your report.
 - Build or run the relevant tests before reporting. If you couldn't run them, say so.
-- Track your task in `claude/volt/features/in-progress.md` and add a short entry to `claude/CHANGELOG.md` under Unreleased.
+- Track your task in `claude/volt/features/<task id>.md` (requirements checklist, files touched, test status) and write a one-line changelog entry to `claude/changelog.d/<task id>.md`.
 EOF
 
 agent iris orange "tools: Read, Write, Edit, Glob, Grep, Bash" \
@@ -355,7 +360,7 @@ You are SWIFT, the optimizer.
 - Measure before changing anything, and record the baseline in `claude/swift/performance-metrics.md`.
 - Change one thing at a time, then measure again. Keep only changes that measurably help.
 - Never change behavior. Run the tests after each change.
-- Record what you tried, including what didn't help, in `claude/swift/optimization-log.md`.
+- Record what you tried, including what didn't help, in `claude/swift/log/<task id>.md`.
 EOF
 
 agent sage pink "$DOCS_TOOLS" \
@@ -375,7 +380,7 @@ You are DEBUG, the debugger.
 - Reproduce the problem first. If you can't reproduce it, report `blocked` with what you tried.
 - Find the root cause, not just the symptom. Explain it in one or two sentences.
 - Make the smallest fix that addresses the cause, and add a test that fails without it.
-- Record the issue in `claude/debug/known-issues.md` and the fix in `claude/debug/resolution-log.md`.
+- Record the issue, its root cause and the fix in `claude/debug/fixes/<task id>.md`.
 EOF
 
 agent quest cyan "$NO_SPAWN" \
@@ -389,7 +394,7 @@ You are QUEST, the tester.
 - Cover the happy path, error cases and the edge cases in `claude/quest/edge-cases.md`.
 - Run the tests and report real results. Never report a test as passing that you didn't run.
 - A failing test that reveals a real bug is a good result: report it, don't weaken the test.
-- Update `claude/quest/test-results.md` and `claude/quest/test-coverage.md`.
+- Write your results (suites run, passed, failed, coverage if measured) to `claude/quest/results/<task id>.md`.
 EOF
 
 # ── orchestration rules for the main session ─────────────────────────────────
@@ -408,7 +413,8 @@ push, force-push, reset, rebase or rewrite history unless the user explicitly as
      `git switch -c team/<short-name>`, for example `team/landing-page`. Everything merges into it;
      the user decides when it goes into `main`.
 2. **Commit before every batch.** Agents' worktrees start from the last commit and don't see
-   uncommitted changes. Commit the plan and `claude/` updates:
+   uncommitted changes. First fold the changelog fragments: append each `claude/changelog.d/<task id>.md`
+   entry to `claude/CHANGELOG.md` under Unreleased and delete the fragment. Then commit the plan and `claude/` updates:
    `git add claude && git commit -m "chore(team): plan batch <n>"`. Don't commit files the user
    changed themselves without asking. Write the commit's short hash under the batch heading in
    `claude/luna/task-queue.md`: it's where the batch's review range starts.
@@ -426,11 +432,17 @@ push, force-push, reset, rebase or rewrite history unless the user explicitly as
    `git diff <merge hash>^1 <merge hash>`, while the other agents keep working. A task is `done` only
    after iris returns APPROVED. For NEEDS CHANGES, queue a fix task right away; it starts from the
    merged code. After a split build, run the integration check once every part is merged.
-6. **Finish.** When the queue is complete, tell the user the team branch is ready to merge, with a
+6. **If work is interrupted** (usage limit, crash, closed session), resume instead of restarting. For each
+   task that was `running`: find its worktree with `git worktree list`; commit anything uncommitted there as
+   `wip(<task id>): interrupted`; merge the branch with `git merge --no-ff <branch> -m "merge(<task id>): partial (wip)"`;
+   mark the task `running (resumed from <hash>)`; then relaunch it, telling the agent to finish and verify the
+   merged code, not to start over. Its iris review covers the whole task, wip commits included.
+7. **Finish.** Fold any remaining changelog fragments. When the queue is complete, tell the user the team branch is ready to merge, with a
    summary of its commits (`git log --oneline main..HEAD`). Offer to push it and open a pull request
    with `gh pr create`, and only do so if the user says yes.
 
 If a commit fails because git has no name or email, stop and ask the user to set them. Never invent an identity.
+
 EOF
 }
 GIT_SECTION=""
@@ -490,10 +502,17 @@ Use it whenever the user asks for it. If you can't tell which path fits, ask the
      that matter for that task (name sections and line ranges, not whole folders), so it doesn't spend
      tokens reading the rest. Tell it what's already verified so it doesn't re-check it.
    - Mark tasks \`running\`, then \`done\` or \`blocked\` from each agent's report.
+   - After each batch, append each \`claude/changelog.d/<task id>.md\` entry to \`claude/CHANGELOG.md\`
+     under Unreleased and delete the fragment.
    - Summarize the batch for the user and ask before starting the next one.
 5. **Review.** Each VOLT, DEBUG or SWIFT task gets its own **iris** review, started as soon as that task
    finishes, while the other agents keep working. No such change is \`done\` until iris returns APPROVED.
    If iris says NEEDS CHANGES, queue a fix task for the original agent right away.
+6. **Optional real-run check.** Tests can pass while the real thing is broken: a window that ignores
+   clicks, a page that fails in one browser, a CLI that breaks on another OS. When the queue is done and
+   the project is something that runs (an app, a site, a CLI), offer the user a real-run check: a **quest**
+   task that launches it for real and tries the main features (with screenshots for anything visual), or
+   short steps for the user to try it themselves. Only queue it if the user says yes.
 
 $GIT_SECTION
 
@@ -833,7 +852,8 @@ stub volt/code-standards.md "📋 Code Standards" "*Fill in from the project's e
 ## Error handling
 ## Tests
 Every feature ships with tests."
-stub volt/features/in-progress.md "🚀 In Progress" "One section per task VOLT is working on: task ID, requirements checklist, files touched, test status."
+stub volt/features/in-progress.md "🚀 In Progress" "Each VOLT task keeps its own file here, \`<task id>.md\`, so parallel branches never edit the same notes file."
+stub changelog.d/README.md "Changelog fragments" "Each task writes one \`<task id>.md\` here. The main session appends them to \`CHANGELOG.md\` before each batch and deletes them."
 stub volt/reference-code/README.md "📚 Reference Code" "Short examples of how this codebase does common things (forms, API calls, auth checks), for VOLT to copy.
 Add one file per pattern, for example \`pattern-api.md\`."
 

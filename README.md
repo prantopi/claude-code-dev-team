@@ -215,10 +215,12 @@ Agents can't launch other agents. Your main Claude session coordinates everythin
 The team works like a professional software team: every change is made on a branch, committed, reviewed and merged. Nothing is pushed unless you ask.
 
 1. **A team branch.** Before the first build task, Claude creates a branch such as `team/landing-page`. All work merges into it. `main` stays untouched until you merge the team branch yourself or open a pull request.
-2. **A worktree per coding agent.** VOLT, DEBUG, SWIFT and QUEST each run in their own [git worktree](https://code.claude.com/docs/en/worktrees), a separate copy of the code on its own branch. Parallel agents can't overwrite each other, and each makes one commit for its task.
+2. **A worktree per coding agent.** VOLT, DEBUG, SWIFT and QUEST each run in their own [git worktree](https://code.claude.com/docs/en/worktrees), a separate copy of the code on its own branch. Parallel agents can't overwrite each other. Each commits its finished task, plus `wip` checkpoints along the way.
 3. **Conventional commit messages:** `feat(T4): add pricing toggle`, `test(T5): add signup form tests`, `merge(T4): …`, `chore(team): plan batch 2`.
 4. **Merge, then review, task by task.** As soon as an agent finishes, Claude merges its branch with `--no-ff`, removes the worktree, and has IRIS review just that task's changes, like a pull request, while the other agents keep working. A task is only done when IRIS approves.
-5. **You decide what ships.** When the queue is done, Claude shows you the branch's commits and offers to push it and open a pull request with `gh`. It only does so if you say yes.
+5. **No merge conflicts in the notes.** Each task writes its own note files, named after its task ID (for example `claude/changelog.d/T4.md`), so parallel branches never edit the same file. Claude folds the changelog entries into `claude/CHANGELOG.md` between batches.
+6. **Interruptions don't lose work.** If a usage limit or a closed session stops agents mid-task, Claude commits what's in their worktrees, merges it as `wip`, and relaunches each task to finish from there instead of starting over.
+7. **You decide what ships.** When the queue is done, Claude shows you the branch's commits and offers to push it and open a pull request with `gh`. It only does so if you say yes. For anything that runs (an app, a site, a CLI), it also offers an optional real-run check: QUEST launches it for real and tries the main features, because passing tests don't always mean it works.
 
 Here's the history from a real run, a small fast-path job:
 
