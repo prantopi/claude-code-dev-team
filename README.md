@@ -1,6 +1,9 @@
-<h1 align="center">Claude Code Dev Team</h1>
-
-<p align="center"><strong>Nine specialist agents that plan, build, test and review in parallel.</strong></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/banner-dark.svg">
+    <img src="docs/banner-light.svg" width="100%" alt="Claude Code Dev Team: nine specialist agents that plan, build, test and review in parallel. ECHO, ATLAS, LUNA, VOLT, QUEST, IRIS and SAGE.">
+  </picture>
+</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Bash-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash">
