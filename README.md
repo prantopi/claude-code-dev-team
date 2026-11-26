@@ -1,4 +1,17 @@
-# Claude Code Dev Team
+<h1 align="center">Claude Code Dev Team</h1>
+
+<p align="center"><strong>Nine specialist agents that plan, build, test and review in parallel.</strong></p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Bash-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash">
+  <img src="https://img.shields.io/badge/Claude_Code-subagents-555555?style=flat-square" alt="Claude Code subagents">
+  <img src="https://img.shields.io/badge/agents-9-8A63D2?style=flat-square" alt="9 agents">
+  <img src="https://img.shields.io/badge/git-worktrees-F05032?style=flat-square&logo=git&logoColor=white" alt="git worktrees">
+  <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS">
+  <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux">
+  <img src="https://img.shields.io/badge/Windows-WSL_or_Git_Bash-0078D4?style=flat-square" alt="Windows: WSL or Git Bash">
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT license">
+</p>
 
 > **Community project, not affiliated with or endorsed by Anthropic.** "Claude" and "Claude Code" are trademarks of Anthropic.
 
